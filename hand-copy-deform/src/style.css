@@ -1,0 +1,57 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1600px 900px at 55% 30%, #0c1020, #020206);
+  overflow: auto;
+}
+
+#app {
+  position: relative;
+  width: 3000px;
+  height: 720px;
+  margin: 0;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+}
+
+#stage canvas {
+  display: block;
+  width: 3000px;
+  height: 720px;
+}
+
+/* 웹캠: 화면 전체 위에 30% 투명도로 비춤 (메인과 동일 크기), 저화질 스트림 */
+#webcam-wrap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.1;
+}
+
+#webcam {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
