@@ -428,6 +428,42 @@ const axisGrid = makeAxisGrid({
 })
 scene.add(axisGrid)
 
+// 0..n-1 랜덤 치환
+function randomPermutation(n: number): number[] {
+  const p: number[] = []
+  for (let i = 0; i < n; i++) p[i] = i
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[p[i], p[j]] = [p[j], p[i]]
+  }
+  return p
+}
+
+// 같은 레이어 안에서 position끼리만 랜덤으로 섞기 (attr와 base 동일 순서로)
+function shuffleStarPositions(attr: THREE.BufferAttribute, base: Float32Array) {
+  const arr = attr.array as Float32Array
+  const n = arr.length / 3
+  const perm = randomPermutation(n)
+  const copyPos = new Float32Array(arr)
+  const copyBase = new Float32Array(base)
+  for (let i = 0; i < n; i++) {
+    const j = perm[i] * 3
+    const i3 = i * 3
+    arr[i3] = copyPos[j]
+    arr[i3 + 1] = copyPos[j + 1]
+    arr[i3 + 2] = copyPos[j + 2]
+    base[i3] = copyBase[j]
+    base[i3 + 1] = copyBase[j + 1]
+    base[i3 + 2] = copyBase[j + 2]
+  }
+  attr.needsUpdate = true
+}
+
+let lastTipPositions: { x: number; y: number }[] = []
+const FINGER_TIP_MOVE_THRESHOLD = 0.003
+const CONSTELLATION_COOLDOWN = 0.2
+let lastConstellationChangeTime = 0
+
 scene.add(starLayerFar, starLayerMid, starLayerNear, galaxyBand)
 
 const farCap = captureBasePositions(starLayerFar)
@@ -493,6 +529,7 @@ const tmpDir = new THREE.Vector3()
 // 왼손/오른손 손바닥 한 점 → 각각 왼쪽/오른쪽 별 구역 끌림 (유영)
 let lastLeftHand01 = { x: 0.25, y: 0.5 }
 let lastRightHand01 = { x: 0.75, y: 0.5 }
+let bothHandsVisible = false
 const leftTargetWorld = new THREE.Vector3()
 const rightTargetWorld = new THREE.Vector3()
 
@@ -597,6 +634,45 @@ function tick() {
         }
       }
     }
+  }
+  bothHandsVisible =
+    lastHandLandmarks.some((h) => h.label === 'Left') &&
+    lastHandLandmarks.some((h) => h.label === 'Right')
+
+  // 손가락 위치를 섞을 때마다 → 지금 보이는 별들끼리 position만 랜덤으로 섞기 (레이어 추가 없음)
+  if (bothHandsVisible) {
+    const leftHand = lastHandLandmarks.find((h) => h.label === 'Left')
+    const rightHand = lastHandLandmarks.find((h) => h.label === 'Right')
+    const currentTips: { x: number; y: number }[] = []
+    if (leftHand?.landmarks && leftHand.landmarks.length >= 21) {
+      for (const i of FINGER_TIP_INDICES) currentTips.push({ x: leftHand.landmarks[i].x, y: leftHand.landmarks[i].y })
+    }
+    if (rightHand?.landmarks && rightHand.landmarks.length >= 21) {
+      for (const i of FINGER_TIP_INDICES) currentTips.push({ x: rightHand.landmarks[i].x, y: rightHand.landmarks[i].y })
+    }
+    let shouldShuffle = false
+    const now = performance.now() / 1000
+    if (currentTips.length === 10 && lastTipPositions.length === 10) {
+      let moveSum = 0
+      for (let i = 0; i < 10; i++) {
+        const dx = currentTips[i].x - lastTipPositions[i].x
+        const dy = currentTips[i].y - lastTipPositions[i].y
+        moveSum += dx * dx + dy * dy
+      }
+      if (moveSum > FINGER_TIP_MOVE_THRESHOLD && now - lastConstellationChangeTime >= CONSTELLATION_COOLDOWN) shouldShuffle = true
+    } else if (currentTips.length === 10) {
+      shouldShuffle = true
+    }
+    if (shouldShuffle && currentTips.length === 10) {
+      lastConstellationChangeTime = now
+      lastTipPositions = currentTips.map((t) => ({ x: t.x, y: t.y }))
+      shuffleStarPositions(farCap.attr, farCap.base)
+      shuffleStarPositions(midCap.attr, midCap.base)
+      shuffleStarPositions(nearCap.attr, nearCap.base)
+      shuffleStarPositions(bandCap.attr, bandCap.base)
+    }
+  } else {
+    lastTipPositions = []
   }
 
   if (handDebugCtx) {
