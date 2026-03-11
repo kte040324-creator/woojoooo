@@ -36,22 +36,44 @@ body {
   height: 720px;
 }
 
-/* 웹캠: 화면 전체 위에 30% 투명도로 비춤 (메인과 동일 크기), 저화질 스트림 */
-#webcam-wrap {
+/* 웹캠 3개: 가로 3000px을 1000px씩 3등분해서 오버레이 (프로젝션 맵핑용) */
+#cams {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+  width: 3000px;
+  height: 720px;
   pointer-events: none;
-  opacity: 0.1;
 }
 
-#webcam {
-  display: block;
-  width: 100%;
-  height: 100%;
+#cams video {
+  position: absolute;
+  top: 0;
+  width: 1000px;
+  height: 720px;
   object-fit: cover;
+  opacity: 0.1;
   transform: scaleX(-1);
+}
+
+#cam-front {
+  left: 0;
+}
+
+#cam-left {
+  left: 1000px;
+}
+
+#cam-right {
+  left: 2000px;
+}
+
+/* 손 랜드마크 디버그: 앞 카메라 구간(0~1000px)에 tip 위치 + MediaPipe 인덱스 표시 */
+#hand-debug {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1000px;
+  height: 720px;
+  pointer-events: none;
 }
 

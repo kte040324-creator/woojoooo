@@ -9,9 +9,12 @@
   <body>
     <div id="app">
       <div id="stage" aria-label="3D stage"></div>
-      <div id="webcam-wrap">
-        <video id="webcam" autoplay playsinline muted></video>
+      <div id="cams">
+        <video id="cam-front" autoplay playsinline muted></video>
+        <video id="cam-left" autoplay playsinline muted></video>
+        <video id="cam-right" autoplay playsinline muted></video>
       </div>
+      <canvas id="hand-debug" aria-hidden="true"></canvas>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
