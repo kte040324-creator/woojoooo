@@ -21,7 +21,7 @@ body {
 #app {
   position: relative;
   width: 3840px;
-  height: 720px;
+  height: 1080px;
   margin: 0;
 }
 
@@ -33,7 +33,7 @@ body {
 #stage canvas {
   display: block;
   width: 3840px;
-  height: 720px;
+  height: 1080px;
 }
 
 /* 웹캠 3개: 가로 3840px을 1280px씩 3등분해서 오버레이 (프로젝션 맵핑용) */
@@ -41,7 +41,7 @@ body {
   position: absolute;
   inset: 0;
   width: 3840px;
-  height: 720px;
+  height: 1080px;
   pointer-events: none;
 }
 
@@ -49,7 +49,7 @@ body {
   position: absolute;
   top: 0;
   width: 1280px;
-  height: 720px;
+  height: 1080px;
   object-fit: cover;
   opacity: 0;
   transform: scaleX(-1);
@@ -73,7 +73,7 @@ body {
   left: 0;
   top: 0;
   width: 3840px;
-  height: 720px;
+  height: 1080px;
   pointer-events: none;
 }
 

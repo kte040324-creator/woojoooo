@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { FilesetResolver, PoseLandmarker, HandLandmarker } from '@mediapipe/tasks-vision'
 
 const STAGE_WIDTH = 3840
-const STAGE_HEIGHT = 720
+const STAGE_HEIGHT = 1080
 
 function setStatus(text: string) {
   const el = document.querySelector<HTMLDivElement>('#status')
@@ -286,7 +286,7 @@ if (!stage || !camFrontEl || !camLeftEl || !camRightEl) {
 }
 
 const HAND_DEBUG_PANEL_W = 1280
-const HAND_DEBUG_H = 720
+const HAND_DEBUG_H = 1080
 const HAND_DEBUG_PANELS = 3
 const HAND_DEBUG_W = HAND_DEBUG_PANEL_W * HAND_DEBUG_PANELS
 let handDebugCtx: CanvasRenderingContext2D | null = null
@@ -312,8 +312,8 @@ async function setupWebcam(video: HTMLVideoElement) {
     audio: false,
     video: {
       facingMode: 'user',
-      width: { ideal: 320, max: 480 },
-      height: { ideal: 240, max: 270 }
+      width: { ideal: 1280, max: 1920 },
+      height: { ideal: 1080, max: 1080 }
     }
   })
   video.srcObject = stream
@@ -326,8 +326,8 @@ async function setupSideCam(video: HTMLVideoElement) {
       audio: false,
       video: {
         facingMode: 'user',
-        width: { ideal: 320, max: 480 },
-        height: { ideal: 240, max: 270 }
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 1080, max: 1080 }
       }
     })
     video.srcObject = stream
@@ -369,9 +369,9 @@ async function setupHandLandmarker() {
     },
     runningMode: 'VIDEO',
     numHands: 2,
-    minHandDetectionConfidence: 0.6,
-    minHandPresenceConfidence: 0.6,
-    minTrackingConfidence: 0.6
+    minHandDetectionConfidence: 0.4,
+    minHandPresenceConfidence: 0.4,
+    minTrackingConfidence: 0.4
   })
 }
 
@@ -541,6 +541,7 @@ let lastRightHand01 = { x: 0.75, y: 0.5 }
 let bothHandsVisible = false
 const leftTargetWorld = new THREE.Vector3()
 const rightTargetWorld = new THREE.Vector3()
+const HAND_PALM_SMOOTH = 0.3
 
 function handNormalizedToWorld(x01: number, y01: number, out: THREE.Vector3) {
   const ndcX = (1 - x01) * 2 - 1
@@ -636,9 +637,11 @@ function tick() {
           const palmX = (lm[0].x + lm[5].x + lm[9].x) / 3
           const palmY = (lm[0].y + lm[5].y + lm[9].y) / 3
           if (label === 'Left') {
-            lastLeftHand01 = { x: palmX, y: palmY }
+            lastLeftHand01.x += (palmX - lastLeftHand01.x) * HAND_PALM_SMOOTH
+            lastLeftHand01.y += (palmY - lastLeftHand01.y) * HAND_PALM_SMOOTH
           } else if (label === 'Right') {
-            lastRightHand01 = { x: palmX, y: palmY }
+            lastRightHand01.x += (palmX - lastRightHand01.x) * HAND_PALM_SMOOTH
+            lastRightHand01.y += (palmY - lastRightHand01.y) * HAND_PALM_SMOOTH
           }
         }
       }
