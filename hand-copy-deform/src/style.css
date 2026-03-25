@@ -20,7 +20,7 @@ body {
 
 #app {
   position: relative;
-  width: 3000px;
+  width: 3840px;
   height: 720px;
   margin: 0;
 }
@@ -32,15 +32,15 @@ body {
 
 #stage canvas {
   display: block;
-  width: 3000px;
+  width: 3840px;
   height: 720px;
 }
 
-/* 웹캠 3개: 가로 3000px을 1000px씩 3등분해서 오버레이 (프로젝션 맵핑용) */
+/* 웹캠 3개: 가로 3840px을 1280px씩 3등분해서 오버레이 (프로젝션 맵핑용) */
 #cams {
   position: absolute;
   inset: 0;
-  width: 3000px;
+  width: 3840px;
   height: 720px;
   pointer-events: none;
 }
@@ -48,10 +48,10 @@ body {
 #cams video {
   position: absolute;
   top: 0;
-  width: 1000px;
+  width: 1280px;
   height: 720px;
   object-fit: cover;
-  opacity: 0.1;
+  opacity: 0;
   transform: scaleX(-1);
 }
 
@@ -60,19 +60,19 @@ body {
 }
 
 #cam-left {
-  left: 1000px;
+  left: 1280px;
 }
 
 #cam-right {
-  left: 2000px;
+  left: 2560px;
 }
 
-/* 손 랜드마크 디버그: 앞 카메라 구간(0~1000px)에 tip 위치 + MediaPipe 인덱스 표시 */
+/* 손 랜드마크 디버그: 화면 세 구간(0~1280, 1280~2560, 2560~3840) 모두에 표시 */
 #hand-debug {
   position: absolute;
   left: 0;
   top: 0;
-  width: 1000px;
+  width: 3840px;
   height: 720px;
   pointer-events: none;
 }

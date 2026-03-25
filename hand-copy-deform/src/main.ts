@@ -2,7 +2,7 @@ import './style.css'
 import * as THREE from 'three'
 import { FilesetResolver, PoseLandmarker, HandLandmarker } from '@mediapipe/tasks-vision'
 
-const STAGE_WIDTH = 3000
+const STAGE_WIDTH = 3840
 const STAGE_HEIGHT = 720
 
 function setStatus(text: string) {
@@ -64,7 +64,7 @@ function makeNebulaTexture(colorA: string, colorB: string) {
 }
 
 function makeStarSpriteTexture() {
-  const size = 64
+  const size = 128
   const c = document.createElement('canvas')
   c.width = size
   c.height = size
@@ -75,12 +75,12 @@ function makeStarSpriteTexture() {
 
   const cx = size * 0.5
   const cy = size * 0.5
-  const r = size * 0.45
+  const r = size * 0.48
 
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
   g.addColorStop(0.0, 'rgba(255,255,255,1)')
-  g.addColorStop(0.35, 'rgba(255,255,255,0.9)')
-  g.addColorStop(0.7, 'rgba(255,255,255,0.35)')
+  g.addColorStop(0.25, 'rgba(255,255,255,0.85)')
+  g.addColorStop(0.55, 'rgba(255,255,255,0.25)')
   g.addColorStop(1.0, 'rgba(255,255,255,0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, size, size)
@@ -147,7 +147,7 @@ function makeStarField(opts: {
     opacity,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    alphaTest: 0.02,
+    alphaTest: 0.008,
     sizeAttenuation: true
   })
 
@@ -155,7 +155,7 @@ function makeStarField(opts: {
   return points
 }
 
-function makeGalaxyBand(count: number) {
+function makeGalaxyBand(count: number, sprite: THREE.Texture) {
   const positions = new Float32Array(count * 3)
   const colors = new Float32Array(count * 3)
 
@@ -186,12 +186,16 @@ function makeGalaxyBand(count: number) {
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
 
   const mat = new THREE.PointsMaterial({
-    size: 0.06,
+    size: 0.032,
+    map: sprite,
+    alphaMap: sprite,
     vertexColors: true,
     transparent: true,
     opacity: 0.65,
     depthWrite: false,
-    blending: THREE.AdditiveBlending
+    blending: THREE.AdditiveBlending,
+    alphaTest: 0.008,
+    sizeAttenuation: true
   })
 
   const band = new THREE.Points(geo, mat)
@@ -281,8 +285,10 @@ if (!stage || !camFrontEl || !camLeftEl || !camRightEl) {
   throw new Error('Missing stage or camera video elements')
 }
 
-const HAND_DEBUG_W = 1000
+const HAND_DEBUG_PANEL_W = 1280
 const HAND_DEBUG_H = 720
+const HAND_DEBUG_PANELS = 3
+const HAND_DEBUG_W = HAND_DEBUG_PANEL_W * HAND_DEBUG_PANELS
 let handDebugCtx: CanvasRenderingContext2D | null = null
 let lastHandLandmarks: { label: string; landmarks: { x: number; y: number }[] }[] = []
 
@@ -383,13 +389,16 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
 renderer.setClearColor(0x000007, 1)
 stage.appendChild(renderer.domElement)
 
+let starBlurAmount = 0
+const HAND_DIST_BLUR_THRESHOLD = 0.4
+
 const starSprite = makeStarSpriteTexture()
 
 const starLayerFar = makeStarField({
-  count: 8500,
+  count: 17000,
   radiusMin: 45,
   radiusMax: 140,
-  size: 0.05,
+  size: 0.028,
   color1: new THREE.Color('#8aa0ff'),
   color2: new THREE.Color('#fff3df'),
   opacity: 0.9,
@@ -397,10 +406,10 @@ const starLayerFar = makeStarField({
 })
 
 const starLayerMid = makeStarField({
-  count: 2200,
+  count: 4400,
   radiusMin: 18,
   radiusMax: 70,
-  size: 0.07,
+  size: 0.038,
   color1: new THREE.Color('#7bd5ff'),
   color2: new THREE.Color('#ffe4bf'),
   opacity: 0.85,
@@ -408,17 +417,17 @@ const starLayerMid = makeStarField({
 })
 
 const starLayerNear = makeStarField({
-  count: 750,
+  count: 1500,
   radiusMin: 6,
   radiusMax: 26,
-  size: 0.11,
+  size: 0.058,
   color1: new THREE.Color('#ffffff'),
   color2: new THREE.Color('#b7c7ff'),
   opacity: 0.75,
   sprite: starSprite
 })
 
-const galaxyBand = makeGalaxyBand(5200)
+const galaxyBand = makeGalaxyBand(10400, starSprite)
 
 const axisGrid = makeAxisGrid({
   size: 160,
@@ -684,7 +693,7 @@ function tick() {
     handDebugCtx.lineJoin = 'round'
     handDebugCtx.strokeStyle = 'rgba(255,255,255,0.7)'
     handDebugCtx.lineWidth = 1.2 / 5
-    const toX = (x: number) => (1 - x) * HAND_DEBUG_W
+    const toX = (x: number) => (1 - x) * HAND_DEBUG_PANEL_W
     const toY = (y: number) => y * HAND_DEBUG_H
     const handsByLabel: { Left?: { x: number; y: number; i: number }[]; Right?: { x: number; y: number; i: number }[] } = {}
     for (const hand of lastHandLandmarks) {
@@ -692,37 +701,60 @@ function tick() {
       if (lm.length < 21) continue
       const tips = FINGER_TIP_INDICES.map((i) => ({ x: toX(lm[i].x), y: toY(lm[i].y), i }))
       handsByLabel[hand.label as 'Left' | 'Right'] = tips
-      // tip끼리만 연결: 엄지→검지→중지→약지→새끼→엄지 (손 윤곽)
-      const order = [0, 1, 2, 3, 4, 0]
-      for (let k = 0; k < order.length - 1; k++) {
-        const a = tips[order[k]]
-        const b = tips[order[k + 1]]
-        const cpx = (a.x + b.x) * 0.5 + (b.y - a.y) * 0.08
-        const cpy = (a.y + b.y) * 0.5 - (b.x - a.x) * 0.08
-        handDebugCtx.beginPath()
-        handDebugCtx.moveTo(a.x, a.y)
-        handDebugCtx.quadraticCurveTo(cpx, cpy, b.x, b.y)
-        handDebugCtx.stroke()
-      }
-      for (const t of tips) {
-        handDebugCtx.fillStyle = '#fff'
-        handDebugCtx.fillText(String(t.i), t.x, t.y)
-      }
     }
-    // 좌-우 같은 tip끼리 연결 (엄지-엄지, 검지-검지, ...)
-    const leftTips = handsByLabel.Left
-    const rightTips = handsByLabel.Right
-    if (leftTips && rightTips) {
-      for (let k = 0; k < 5; k++) {
-        const a = leftTips[k]
-        const b = rightTips[k]
-        const cpx = (a.x + b.x) * 0.5 + (b.y - a.y) * 0.06
-        const cpy = (a.y + b.y) * 0.5 - (b.x - a.x) * 0.06
-        handDebugCtx.beginPath()
-        handDebugCtx.moveTo(a.x, a.y)
-        handDebugCtx.quadraticCurveTo(cpx, cpy, b.x, b.y)
-        handDebugCtx.stroke()
+    const dx = lastLeftHand01.x - lastRightHand01.x
+    const dy = lastLeftHand01.y - lastRightHand01.y
+    const handDist = Math.sqrt(dx * dx + dy * dy)
+    const distText = handDist.toFixed(3)
+    const midX = (toX(lastLeftHand01.x) + toX(lastRightHand01.x)) * 0.5
+    const midY = (toY(lastLeftHand01.y) + toY(lastRightHand01.y)) * 0.5
+    for (let p = 0; p < HAND_DEBUG_PANELS; p++) {
+      handDebugCtx.save()
+      handDebugCtx.translate(p * HAND_DEBUG_PANEL_W, 0)
+      for (const hand of lastHandLandmarks) {
+        const lm = hand.landmarks
+        if (lm.length < 21) continue
+        const tips = FINGER_TIP_INDICES.map((i) => ({ x: toX(lm[i].x), y: toY(lm[i].y), i }))
+        const order = [0, 1, 2, 3, 4, 0]
+        for (let k = 0; k < order.length - 1; k++) {
+          const a = tips[order[k]]
+          const b = tips[order[k + 1]]
+          const cpx = (a.x + b.x) * 0.5 + (b.y - a.y) * 0.08
+          const cpy = (a.y + b.y) * 0.5 - (b.x - a.x) * 0.08
+          handDebugCtx.beginPath()
+          handDebugCtx.moveTo(a.x, a.y)
+          handDebugCtx.quadraticCurveTo(cpx, cpy, b.x, b.y)
+          handDebugCtx.stroke()
+        }
+        for (const t of tips) {
+          handDebugCtx.fillStyle = '#fff'
+          handDebugCtx.fillText(String(t.i), t.x, t.y)
+        }
       }
+      const leftTips = handsByLabel.Left
+      const rightTips = handsByLabel.Right
+      if (leftTips && rightTips) {
+        for (let k = 0; k < 5; k++) {
+          const a = leftTips[k]
+          const b = rightTips[k]
+          const cpx = (a.x + b.x) * 0.5 + (b.y - a.y) * 0.06
+          const cpy = (a.y + b.y) * 0.5 - (b.x - a.x) * 0.06
+          handDebugCtx.beginPath()
+          handDebugCtx.moveTo(a.x, a.y)
+          handDebugCtx.quadraticCurveTo(cpx, cpy, b.x, b.y)
+          handDebugCtx.stroke()
+        }
+      }
+      handDebugCtx.font = '16px monospace'
+      handDebugCtx.textAlign = 'center'
+      handDebugCtx.textBaseline = 'middle'
+      const tw = handDebugCtx.measureText(distText).width + 16
+      const th = 24
+      handDebugCtx.fillStyle = 'rgba(0,0,0,0.55)'
+      handDebugCtx.fillRect(midX - tw / 2, midY - th / 2, tw, th)
+      handDebugCtx.fillStyle = '#fff'
+      handDebugCtx.fillText(distText, midX, midY)
+      handDebugCtx.restore()
     }
   }
 
@@ -750,6 +782,15 @@ function tick() {
   convergePointsDual(midCap.attr, midCap.base, leftTargetWorld, rightTargetWorld, amt, 0.55)
   convergePointsDual(nearCap.attr, nearCap.base, leftTargetWorld, rightTargetWorld, amt, 0.75)
   convergePointsDual(bandCap.attr, bandCap.base, leftTargetWorld, rightTargetWorld, amt, 0.18)
+
+  // 양손 거리 0.4 이하 + 왼손 위/오른손 밑 → 별 흐림, 반대면 흐림 해제
+  const handDx = lastLeftHand01.x - lastRightHand01.x
+  const handDy = lastLeftHand01.y - lastRightHand01.y
+  const handDist = Math.sqrt(handDx * handDx + handDy * handDy)
+  const leftAboveRight = lastLeftHand01.y < lastRightHand01.y
+  const shouldBlur = handDist <= HAND_DIST_BLUR_THRESHOLD && leftAboveRight
+  starBlurAmount += (shouldBlur ? 1 : 0 - starBlurAmount) * 0.12
+  renderer.domElement.style.filter = starBlurAmount > 0.01 ? `blur(${starBlurAmount * 5}px)` : ''
 
   renderer.render(scene, camera)
   requestAnimationFrame(tick)
