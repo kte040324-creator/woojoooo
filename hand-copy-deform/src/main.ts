@@ -522,6 +522,12 @@ const MAX_YAW = 2.2
 const MAX_PITCH = 0.85
 const CAM_RADIUS = 12
 const CAM_DAMPING = 0.06
+// 양손 손바닥 거리: 가까울수록 zoom in(반경↓), 멀수록 zoom out(반경↑)
+const HAND_ZOOM_DIST_MIN = 0.1
+const HAND_ZOOM_DIST_MAX = 0.55
+const HAND_ZOOM_RADIUS_IN = 0.48
+const HAND_ZOOM_RADIUS_OUT = 1.42
+let smHandZoomFactor = 1
 
 // arms together (wrists close) → star converge; arms spread → star spread
 const WRIST_DIST_CLOSED = 0.08
@@ -772,10 +778,21 @@ function tick() {
   const y2 = yaw + idleX
   const p2 = pitch + idleY
 
+  const palmDx = lastLeftHand01.x - lastRightHand01.x
+  const palmDy = lastLeftHand01.y - lastRightHand01.y
+  const palmPairDist = Math.hypot(palmDx, palmDy)
+  let targetHandZoomFactor = 1
+  if (bothHandsVisible) {
+    const t = clamp01((palmPairDist - HAND_ZOOM_DIST_MIN) / (HAND_ZOOM_DIST_MAX - HAND_ZOOM_DIST_MIN))
+    targetHandZoomFactor = HAND_ZOOM_RADIUS_IN + t * (HAND_ZOOM_RADIUS_OUT - HAND_ZOOM_RADIUS_IN)
+  }
+  smHandZoomFactor += (targetHandZoomFactor - smHandZoomFactor) * 0.1
+  const camR = CAM_RADIUS * smHandZoomFactor
+
   // Three.js: 구면 좌표로 원점 둘러보기 — 얼굴 각도에 따라 다른 화면
-  camera.position.x = Math.sin(y2) * Math.cos(p2) * CAM_RADIUS
-  camera.position.y = Math.sin(p2) * CAM_RADIUS
-  camera.position.z = Math.cos(y2) * Math.cos(p2) * CAM_RADIUS
+  camera.position.x = Math.sin(y2) * Math.cos(p2) * camR
+  camera.position.y = Math.sin(p2) * camR
+  camera.position.z = Math.cos(y2) * Math.cos(p2) * camR
   camera.lookAt(0, 0, 0)
 
   handNormalizedToWorld(lastLeftHand01.x, lastLeftHand01.y, leftTargetWorld)
@@ -787,11 +804,8 @@ function tick() {
   convergePointsDual(bandCap.attr, bandCap.base, leftTargetWorld, rightTargetWorld, amt, 0.18)
 
   // 양손 거리 0.4 이하 + 왼손 위/오른손 밑 → 별 흐림, 반대면 흐림 해제
-  const handDx = lastLeftHand01.x - lastRightHand01.x
-  const handDy = lastLeftHand01.y - lastRightHand01.y
-  const handDist = Math.sqrt(handDx * handDx + handDy * handDy)
   const leftAboveRight = lastLeftHand01.y < lastRightHand01.y
-  const shouldBlur = handDist <= HAND_DIST_BLUR_THRESHOLD && leftAboveRight
+  const shouldBlur = palmPairDist <= HAND_DIST_BLUR_THRESHOLD && leftAboveRight
   starBlurAmount += (shouldBlur ? 1 : 0 - starBlurAmount) * 0.12
   renderer.domElement.style.filter = starBlurAmount > 0.01 ? `blur(${starBlurAmount * 5}px)` : ''
 
